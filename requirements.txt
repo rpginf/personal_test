@@ -1,0 +1,14 @@
+PyQt6>=6.4.0
+pyautogui>=0.9.54
+selenium>=4.15.0
+beautifulsoup4>=4.12.0
+openpyxl>=3.1.2
+pandas>=2.0.0
+requests>=2.31.0
+opencv-python>=4.8.0
+keyboard>=0.13.5
+Pillow>=10.0.0
+webdriver-manager>=4.0.0
+lxml>=4.9.3
+pynput>=1.7.6
+pyperclip>=1.8.2

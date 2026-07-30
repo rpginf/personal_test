@@ -1,0 +1,18 @@
+# Python cache
+# Python automatically creates these code is run
+__pycache__/
+*.pyc
+
+# Environment variables (NEVER commit this)
+#DATABASE_PASSWORD=supersecret123
+#API_KEY=sk-abc123privatekey
+#SECRET_TOKEN=do-not-share
+# Instead share something like .env.example
+.env
+
+# Log files
+# VS Code debugger, your app, or libraries create these
+#debug.log
+#error.log
+#app.log
+*.log

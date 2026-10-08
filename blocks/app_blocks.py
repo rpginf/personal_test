@@ -64,7 +64,7 @@ class KeyPressBlock(Block):
     ICON = '🔑'
     COLOR = '#bd93f9'
     PARAMS = [
-        Param('keys', 'Keys to press', 'text', required=True,
+        Param('keys', 'Keys to press', 'keyseq', required=True,
               placeholder='enter  or  ctrl+c  or  alt+f, down, down, enter'),
         Param('times', 'Repeat count', 'int', default=1),
         Param('delay_between', 'Delay between presses (s)', 'float', default=0.1),
@@ -72,7 +72,7 @@ class KeyPressBlock(Block):
     ]
 
     def execute(self, context: Dict[str, Any]) -> None:
-        import pyautogui
+        import keyboard
         keys_str = self.params.get('keys') or ''
         times = int(self.params.get('times') or 1)
         delay = float(self.params.get('delay_between') or 0.1)
@@ -80,11 +80,7 @@ class KeyPressBlock(Block):
         combos = [k.strip() for k in keys_str.split(',') if k.strip()]
         for _ in range(times):
             for combo in combos:
-                parts = [p.strip() for p in combo.split('+')]
-                if len(parts) > 1:
-                    pyautogui.hotkey(*parts)
-                else:
-                    pyautogui.press(parts[0])
+                keyboard.send(combo)
                 time.sleep(delay)
         self.output = f"Pressed: {keys_str} ×{times}"
 

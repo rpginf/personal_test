@@ -1,0 +1,54 @@
+{
+  "name": "New Workflow",
+  "description": "",
+  "blocks": [
+    {
+      "type": "OpenApplicationBlock",
+      "id": "8e9fb846-198d-44d4-9ea1-b6f832fd9262",
+      "params": {
+        "app_path": "C:\\Program Files\\space\\launcher\\runnit_launcher.bat",
+        "arguments": "Navigator",
+        "wait_seconds": 3.0
+      }
+    },
+    {
+      "type": "KeyPressBlock",
+      "id": "ccab5c08-1727-4e09-adab-2621cb0f32d0",
+      "params": {
+        "keys": "page down,enter",
+        "times": 1,
+        "delay_between": 0.001,
+        "wait_before": 1.0
+      }
+    },
+    {
+      "type": "TypeTextBlock",
+      "id": "a97b30de-171f-41a8-9f3e-5d76e849993c",
+      "params": {
+        "text": "read_all",
+        "interval": 0.03,
+        "wait_before": 9.0
+      }
+    },
+    {
+      "type": "KeyPressBlock",
+      "id": "8819bf7a-b51a-429d-99ef-25c2b1dd8a78",
+      "params": {
+        "keys": "tab",
+        "times": 1,
+        "delay_between": 0.1,
+        "wait_before": 0.2
+      }
+    },
+    {
+      "type": "TypeTextBlock",
+      "id": "2a8ba648-e012-492c-8992-e28228de21c4",
+      "params": {
+        "text": "read_all",
+        "interval": 0.03,
+        "wait_before": 0.3
+      }
+    }
+  ],
+  "metadata": {}
+}

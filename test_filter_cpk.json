@@ -1,0 +1,52 @@
+{
+  "name": "New Workflow",
+  "description": "",
+  "blocks": [
+    {
+      "type": "CopyFileBlock",
+      "id": "dbac3ded-2f6e-4aa9-8ba6-f37c8bf05251",
+      "params": {
+        "source": "\\\\drssdn80.eu.infineon.com\\info\\PZI\\CPK\\Cpk_Report_300.xlsm",
+        "destination": "C:\\Users\\PinedaGomez\\OneDrive - Infineon\\Personal\\Dokumenten\\IC1\\cpk\\cpk_kopie",
+        "add_date_prefix": true,
+        "date_format": "%Y-%m",
+        "overwrite": true
+      }
+    },
+    {
+      "type": "OpenExcelBlock",
+      "id": "bd52e138-dbf2-4447-8141-01a6d6ffebf3",
+      "params": {
+        "filepath": "C:\\Users\\PinedaGomez\\OneDrive - Infineon\\Personal\\Dokumenten\\IC1\\cpk\\cpk_kopie\\2026-09_Cpk_Report_300.xlsm",
+        "sheet_name": "CPK",
+        "output_variable": "excel_data"
+      }
+    },
+    {
+      "type": "FilterColumnBlock",
+      "id": "4f882548-3b98-457f-a604-4915da791acb",
+      "params": {
+        "data_variable": "excel_data",
+        "sheet_name": "CPK",
+        "column": "TECHNOLOGIE",
+        "filter_mode": "match_list",
+        "values": "C11HNL_12",
+        "case_sensitive": false,
+        "sort_column": "",
+        "sort_ascending": true,
+        "output_variable": "excel_data"
+      }
+    },
+    {
+      "type": "SaveExcelBlock",
+      "id": "2b95ab4a-e6b4-4654-923b-2245a07b2648",
+      "params": {
+        "data_variable": "excel_data",
+        "output_path": "C:\\Users\\PinedaGomez\\OneDrive - Infineon\\Personal\\Dokumenten\\IC1\\cpk\\cpk_kopie\\empty.xlsm",
+        "sheet_name": "sheet",
+        "include_index": false
+      }
+    }
+  ],
+  "metadata": {}
+}

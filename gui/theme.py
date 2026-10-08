@@ -86,6 +86,27 @@ QLineEdit, QTextEdit, QSpinBox, QDoubleSpinBox, QComboBox {{
     border:1px solid {c['overlay2']}; border-radius:4px;
     padding:3px 6px; font-size:{fs}px;
 }}
+QSpinBox, QDoubleSpinBox {{ padding-right:18px; }}
+QSpinBox::up-button, QDoubleSpinBox::up-button {{
+    subcontrol-origin:border; subcontrol-position:top right;
+    width:16px; border-left:1px solid {c['overlay2']};
+    background:{c['surface2']}; border-top-right-radius:3px;
+}}
+QSpinBox::down-button, QDoubleSpinBox::down-button {{
+    subcontrol-origin:border; subcontrol-position:bottom right;
+    width:16px; border-left:1px solid {c['overlay2']};
+    background:{c['surface2']}; border-bottom-right-radius:3px;
+}}
+QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
+QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {{
+    background:{c['overlay']};
+}}
+QSpinBox::up-button:pressed, QDoubleSpinBox::up-button:pressed,
+QSpinBox::down-button:pressed, QDoubleSpinBox::down-button:pressed {{
+    background:{c['overlay2']};
+}}
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {{ width:6px; height:6px; }}
+QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {{ width:6px; height:6px; }}
 QLineEdit:focus, QTextEdit:focus {{ border-color:{c['accent']}; }}
 QComboBox::drop-down {{ border:none; }}
 QComboBox QAbstractItemView {{

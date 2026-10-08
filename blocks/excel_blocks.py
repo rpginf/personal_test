@@ -1,7 +1,29 @@
 from __future__ import annotations
+import os
+import tempfile
+import zipfile
+from copy import copy
 from typing import Any, Dict
 from .base import Block, Param
 from .registry import register
+
+
+def _save_as_macro_enabled(workbook: Any, output: str, output_dir: str) -> None:
+    """Save a workbook as a valid XLSM package when no VBA archive exists."""
+    with tempfile.NamedTemporaryFile(suffix='.xlsx', dir=output_dir, delete=False) as temporary:
+        temporary_path = temporary.name
+    try:
+        workbook.save(temporary_path)
+        with zipfile.ZipFile(temporary_path, 'r') as source, zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED) as destination:
+            for item in source.infolist():
+                data = source.read(item.filename)
+                if item.filename == '[Content_Types].xml':
+                    data = data.replace(
+                        b'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml',
+                        b'application/vnd.ms-excel.sheet.macroEnabled.main+xml')
+                destination.writestr(item.filename, data)
+    finally:
+        os.unlink(temporary_path)
 
 
 @register
@@ -21,13 +43,16 @@ class OpenExcelBlock(Block):
 
     def execute(self, context: Dict[str, Any]) -> None:
         import pandas as pd
+        import openpyxl
         filepath = self.params['filepath']
         sheet = self.params.get('sheet_name') or 0
         var = self.params.get('output_variable') or 'excel_data'
         df = pd.read_excel(filepath, sheet_name=sheet)
         context[var] = df
         context['_excel_filepath'] = filepath
-        context['_excel_sheet'] = sheet
+        workbook = openpyxl.load_workbook(filepath, read_only=True, keep_vba=True)
+        context['_excel_sheet'] = workbook.sheetnames[sheet] if isinstance(sheet, int) else sheet
+        workbook.close()
         self.output = f"Loaded {len(df)} rows × {len(df.columns)} columns"
 
     def get_summary(self) -> str:
@@ -59,6 +84,7 @@ class SelectSheetBlock(Block):
         var = self.params.get('output_variable') or 'excel_data'
         df = pd.read_excel(filepath, sheet_name=sheet)
         context[var] = df
+        context['_excel_sheet'] = sheet
         self.output = f"Sheet '{sheet}': {len(df)} rows"
 
 
@@ -167,6 +193,8 @@ class FilterColumnBlock(Block):
 
         out = self.params.get('output_variable') or 'excel_data'
         context[out] = filtered
+        if sheet_name:
+            context['_excel_sheet'] = sheet_name
         sheet_info = f", sheet '{sheet_name}'" if sheet_name else ''
         self.output = f"Filtered to {len(filtered)} rows  (col '{column}' {mode}{sheet_info})"
 
@@ -213,11 +241,64 @@ class SaveExcelBlock(Block):
     ]
 
     def execute(self, context: Dict[str, Any]) -> None:
+        import pandas as pd
+        import openpyxl
         var = self.params.get('data_variable') or 'excel_data'
         df = context.get(var)
         if df is None:
             raise ValueError(f"No DataFrame in variable '{var}'")
         output = self.params['output_path']
-        df.to_excel(output, sheet_name=self.params.get('sheet_name') or 'Sheet1',
-                    index=bool(self.params.get('include_index')))
+        sheet_name = self.params.get('sheet_name') or 'Sheet1'
+        include_index = bool(self.params.get('include_index'))
+
+        source = context.get('_excel_filepath')
+        source_sheet = context.get('_excel_sheet')
+        if source and os.path.isfile(source):
+            # Keep the original package so styles, formulas, charts, and VBA survive.
+            keep_vba = str(source).lower().endswith('.xlsm')
+            workbook = openpyxl.load_workbook(source, keep_vba=keep_vba)
+            target_sheet = sheet_name if sheet_name in workbook.sheetnames else source_sheet
+            if not target_sheet or target_sheet not in workbook.sheetnames:
+                target_sheet = workbook.sheetnames[0]
+            worksheet = workbook[target_sheet]
+
+            header_row = 1
+            headers = [worksheet.cell(header_row, column).value for column in range(1, worksheet.max_column + 1)]
+            columns = [header for header in headers if header is not None]
+            if list(df.columns) != columns[:len(df.columns)]:
+                workbook.close()
+                raise ValueError(
+                    f"Data columns do not match '{target_sheet}'. Expected {columns}, got {list(df.columns)}"
+                )
+
+            row_styles = {
+                row_number: [copy(worksheet.cell(row_number, column)._style)
+                             for column in range(1, len(df.columns) + 1)]
+                for row_number in range(header_row + 1, worksheet.max_row + 1)
+            }
+            original_data_end = max(worksheet.max_row, len(df.index) + header_row)
+            for row_number in range(header_row + 1, original_data_end + 1):
+                for column_number in range(1, len(df.columns) + (1 if include_index else 0) + 1):
+                    worksheet.cell(row_number, column_number).value = None
+
+            for output_row, (_, row) in enumerate(df.iterrows(), start=header_row + 1):
+                source_row = int(row.name) + header_row + 1 if isinstance(row.name, int) else None
+                if source_row in row_styles:
+                    for column_number, style in enumerate(row_styles[source_row], start=1):
+                        worksheet.cell(output_row, column_number)._style = copy(style)
+                values = ([row.name] if include_index else []) + list(row)
+                for column_number, value in enumerate(values, start=1):
+                    if pd.isna(value):
+                        value = None
+                    worksheet.cell(output_row, column_number).value = value
+
+            os.makedirs(os.path.dirname(os.path.abspath(output)), exist_ok=True)
+            if output.lower().endswith('.xlsm') and not keep_vba:
+                _save_as_macro_enabled(workbook, output, os.path.dirname(os.path.abspath(output)))
+            else:
+                workbook.save(output)
+            workbook.close()
+        else:
+            # No source workbook is available, so create a normal workbook.
+            df.to_excel(output, sheet_name=sheet_name, index=include_index)
         self.output = f"Saved {len(df)} rows → {output}"

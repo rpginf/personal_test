@@ -45,8 +45,39 @@ class ActionRecorder:
 
             t0 = self._start_time
 
+            # pynput special-key name → keyboard-library name
+            _KEY_MAP = {
+                'ctrl_l': 'ctrl',   'ctrl_r': 'ctrl',
+                'shift':  'shift',  'shift_r': 'shift',
+                'alt_l':  'alt',    'alt_r': 'alt',    'alt_gr': 'alt',
+                'cmd':    'win',    'cmd_r': 'win',
+                'enter':  'enter',  'return': 'enter',
+                'space':  'space',  'tab': 'tab',       'esc': 'esc',
+                'backspace': 'backspace', 'delete': 'delete',
+                'insert': 'insert', 'home': 'home',     'end': 'end',
+                'page_up': 'page up', 'page_down': 'page down',
+                'up': 'up', 'down': 'down', 'left': 'left', 'right': 'right',
+                'caps_lock': 'caps lock', 'num_lock': 'num lock',
+                'scroll_lock': 'scroll lock', 'print_screen': 'print screen',
+                'pause': 'pause',
+            }
+            _MODIFIER_KEYS = frozenset({'ctrl_l', 'ctrl_r', 'shift', 'shift_r',
+                                        'alt_l', 'alt_r', 'alt_gr', 'cmd', 'cmd_r'})
+            _MOD_NORM = {
+                'ctrl_l': 'ctrl', 'ctrl_r': 'ctrl',
+                'shift': 'shift', 'shift_r': 'shift',
+                'alt_l': 'alt',   'alt_r': 'alt', 'alt_gr': 'alt',
+                'cmd': 'win',     'cmd_r': 'win',
+            }
+            _MOD_ORDER = ['ctrl', 'alt', 'shift', 'win']
+
+            held: set[str] = set()
+
             def _ts() -> float:
                 return round(time.time() - t0, 3)
+
+            def _raw_name(key) -> str:
+                return str(key).replace('Key.', '').strip("'")
 
             def on_click(x: int, y: int, button, pressed: bool):
                 if not self.is_recording:
@@ -61,18 +92,48 @@ class ActionRecorder:
             def on_press(key):
                 if not self.is_recording:
                     return False
+                raw = _raw_name(key)
+
+                # Track modifier state; don't emit a standalone event for them
+                if raw in _MODIFIER_KEYS:
+                    held.add(_MOD_NORM[raw])
+                    return
+
+                # Recover base character: ctrl combos produce control chars (\x01–\x1a)
                 try:
                     char = key.char
-                    k = char if char else str(key)
                 except AttributeError:
-                    k = str(key).replace('Key.', '')
-                action = {'type': 'key_press', 'key': k, 'time': _ts()}
+                    char = None
+
+                if char is not None and len(char) == 1:
+                    code = ord(char)
+                    if 0x01 <= code <= 0x1a:
+                        # Control character → recover the letter (ctrl+a=\x01 … ctrl+z=\x1a)
+                        base = chr(code + ord('a') - 1)
+                    else:
+                        base = char
+                else:
+                    # Special / function key
+                    base = _KEY_MAP.get(raw, raw)
+
+                if held:
+                    mods = [m for m in _MOD_ORDER if m in held]
+                    combo = '+'.join(mods + [base])
+                else:
+                    combo = base
+
+                action = {'type': 'key_press', 'key': combo, 'time': _ts()}
                 self._actions.append(action)
                 if self._on_action:
                     self._on_action(action)
 
+            def on_release(key):
+                raw = _raw_name(key)
+                if raw in _MODIFIER_KEYS:
+                    held.discard(_MOD_NORM[raw])
+
             m_listener = mouse.Listener(on_click=on_click)
-            k_listener = keyboard.Listener(on_press=on_press)
+            k_listener = keyboard.Listener(on_press=on_press, on_release=on_release)
             m_listener.start()
             k_listener.start()
             self._stop_event.wait()

@@ -6,8 +6,35 @@ from PyQt6.QtWidgets import (
     QScrollArea, QFileDialog,
 )
 from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QKeyEvent
 from blocks.base import Block, Param
 from gui.theme import THEMES, FONT_SIZES, DEFAULT_THEME, DEFAULT_FONT_SIZE
+
+
+# Subclasses that guarantee keyboard Up/Down always steps the value,
+# working around a PyQt6/Windows quirk where Key_Up can be dropped.
+class _SpinBox(QSpinBox):
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if event.key() == Qt.Key.Key_Up:
+            self.setValue(self.value() + self.singleStep())
+            event.accept()
+        elif event.key() == Qt.Key.Key_Down:
+            self.setValue(self.value() - self.singleStep())
+            event.accept()
+        else:
+            super().keyPressEvent(event)
+
+
+class _DoubleSpinBox(QDoubleSpinBox):
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if event.key() == Qt.Key.Key_Up:
+            self.setValue(self.value() + self.singleStep())
+            event.accept()
+        elif event.key() == Qt.Key.Key_Down:
+            self.setValue(self.value() - self.singleStep())
+            event.accept()
+        else:
+            super().keyPressEvent(event)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -53,14 +80,14 @@ class ParamWidget(QWidget):
             layout.addWidget(self.widget)
 
         elif t == 'int':
-            self.widget = QSpinBox()
+            self.widget = _SpinBox()
             self.widget.setRange(-9_999_999, 9_999_999)
             self.widget.setValue(int(value) if value is not None else 0)
             self.widget.valueChanged.connect(self.value_changed)
             layout.addWidget(self.widget)
 
         elif t == 'float':
-            self.widget = QDoubleSpinBox()
+            self.widget = _DoubleSpinBox()
             self.widget.setRange(-9_999_999.0, 9_999_999.0)
             self.widget.setDecimals(3)
             self.widget.setValue(float(value) if value is not None else 0.0)
@@ -81,6 +108,21 @@ class ParamWidget(QWidget):
             self.widget.currentTextChanged.connect(self.value_changed)
             layout.addWidget(self.widget)
 
+        elif t == 'keyseq':
+            self.widget = QLineEdit()
+            self.widget.setText(str(value) if value is not None else '')
+            self.widget.setPlaceholderText(self.param.placeholder)
+            if self.param.tooltip:
+                self.widget.setToolTip(self.param.tooltip)
+            self.widget.textChanged.connect(self.value_changed)
+            layout.addWidget(self.widget)
+            btn = QPushButton('⌨')
+            btn.setFixedWidth(28)
+            btn.setToolTip('Open Key Picker — press keys to capture their names')
+            btn.setStyleSheet('padding:0;')
+            btn.clicked.connect(self._open_key_picker)
+            layout.addWidget(btn)
+
         elif t in ('file', 'folder', 'file_save'):
             self.widget = QLineEdit()
             self.widget.setText(str(value) if value is not None else '')
@@ -98,6 +140,15 @@ class ParamWidget(QWidget):
             self.widget.setText(str(value) if value is not None else '')
             self.widget.textChanged.connect(self.value_changed)
             layout.addWidget(self.widget)
+
+    def _open_key_picker(self) -> None:
+        from gui.key_picker import KeyPickerDialog
+        dlg = KeyPickerDialog(self)
+        if dlg.exec():
+            seq = dlg.get_sequence()
+            if seq:
+                existing = self.widget.text().strip().rstrip(',')
+                self.widget.setText((existing + ', ' + seq) if existing else seq)
 
     def _browse(self) -> None:
         t = self.param.type
@@ -177,6 +228,8 @@ class PropertiesPanel(QWidget):
         # ── scrollable form ───────────────────────────────────────────────
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
+        self._scroll.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._scroll.viewport().setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.form_widget = QWidget()
         self.form_layout = QVBoxLayout(self.form_widget)
         self.form_layout.setContentsMargins(12, 12, 12, 12)
